@@ -13,6 +13,12 @@ export interface Provider {
   default?: boolean;
   /** HTTP 代理配置 (例如: http://127.0.0.1:7897) */
   proxy?: string;
+  /** 默认 Haiku 模型 */
+  defaultHaikuModel?: string;
+  /** 默认 Sonnet 模型 */
+  defaultSonnetModel?: string;
+  /** 默认 Opus 模型 */
+  defaultOpusModel?: string;
 }
 
 export interface TestResult {

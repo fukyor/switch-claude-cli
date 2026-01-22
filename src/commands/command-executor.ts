@@ -496,6 +496,17 @@ export class CommandExecutor {
     process.env.ANTHROPIC_BASE_URL = provider.baseUrl;
     process.env.ANTHROPIC_AUTH_TOKEN = provider.key;
 
+    // 设置模型环境变量
+    if (provider.defaultHaikuModel) {
+      process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL = provider.defaultHaikuModel;
+    }
+    if (provider.defaultSonnetModel) {
+      process.env.ANTHROPIC_DEFAULT_SONNET_MODEL = provider.defaultSonnetModel;
+    }
+    if (provider.defaultOpusModel) {
+      process.env.ANTHROPIC_DEFAULT_OPUS_MODEL = provider.defaultOpusModel;
+    }
+
     console.log(`\n✅ 已切换到: ${provider.name} (${provider.baseUrl})`);
     console.log(`\n🔧 环境变量已设置:`);
     console.log(`   ANTHROPIC_BASE_URL=${provider.baseUrl}`);
@@ -506,6 +517,16 @@ export class CommandExecutor {
       const normalizedProxy = normalizeProxyUrl(provider.proxy);
       console.log(`   HTTP_PROXY=${normalizedProxy}`);
       console.log(`   HTTPS_PROXY=${normalizedProxy}`);
+    }
+
+    if (provider.defaultHaikuModel) {
+      console.log(`   ANTHROPIC_DEFAULT_HAIKU_MODEL=${provider.defaultHaikuModel}`);
+    }
+    if (provider.defaultSonnetModel) {
+      console.log(`   ANTHROPIC_DEFAULT_SONNET_MODEL=${provider.defaultSonnetModel}`);
+    }
+    if (provider.defaultOpusModel) {
+      console.log(`   ANTHROPIC_DEFAULT_OPUS_MODEL=${provider.defaultOpusModel}`);
     }
 
     const responseTime = provider.testResult?.responseTime ?? null;
@@ -521,6 +542,15 @@ export class CommandExecutor {
       }
       console.log(`   $env:ANTHROPIC_BASE_URL="${provider.baseUrl}"`);
       console.log(`   $env:ANTHROPIC_AUTH_TOKEN="${provider.key}"`);
+      if (provider.defaultHaikuModel) {
+        console.log(`   $env:ANTHROPIC_DEFAULT_HAIKU_MODEL="${provider.defaultHaikuModel}"`);
+      }
+      if (provider.defaultSonnetModel) {
+        console.log(`   $env:ANTHROPIC_DEFAULT_SONNET_MODEL="${provider.defaultSonnetModel}"`);
+      }
+      if (provider.defaultOpusModel) {
+        console.log(`   $env:ANTHROPIC_DEFAULT_OPUS_MODEL="${provider.defaultOpusModel}"`);
+      }
       console.log(`   claude`);
       return { success: true, message: '', exitCode: 0 };
     }
@@ -569,13 +599,35 @@ export class CommandExecutor {
         if (platform === 'windows') {
           // 在 Windows 上使用 cmd 执行（尽量避免对 PowerShell 的依赖）
           command = userShell; // 通常为 cmd.exe
-          const winCmd = `set "ANTHROPIC_BASE_URL=${provider.baseUrl}" && set "ANTHROPIC_AUTH_TOKEN=${provider.key}" && claude`;
+          // 构建包含模型环境变量的命令
+          let modelEnv = '';
+          if (provider.defaultHaikuModel) {
+            modelEnv += `set "ANTHROPIC_DEFAULT_HAIKU_MODEL=${provider.defaultHaikuModel}" && `;
+          }
+          if (provider.defaultSonnetModel) {
+            modelEnv += `set "ANTHROPIC_DEFAULT_SONNET_MODEL=${provider.defaultSonnetModel}" && `;
+          }
+          if (provider.defaultOpusModel) {
+            modelEnv += `set "ANTHROPIC_DEFAULT_OPUS_MODEL=${provider.defaultOpusModel}" && `;
+          }
+          const winCmd = `${modelEnv}set "ANTHROPIC_BASE_URL=${provider.baseUrl}" && set "ANTHROPIC_AUTH_TOKEN=${provider.key}" && claude`;
           args = ['/c', winCmd];
           useShell = false;
         } else {
           command = userShell;
           // -l 登录 shell（读取 zprofile/profile），-i 交互式（读取 zshrc/bashrc），-c 执行命令
-          const exportCmd = `export ANTHROPIC_BASE_URL="${provider.baseUrl}"; export ANTHROPIC_AUTH_TOKEN="${provider.key}"; claude`;
+          // 构建包含模型环境变量的命令
+          let modelExport = '';
+          if (provider.defaultHaikuModel) {
+            modelExport += `export ANTHROPIC_DEFAULT_HAIKU_MODEL="${provider.defaultHaikuModel}"; `;
+          }
+          if (provider.defaultSonnetModel) {
+            modelExport += `export ANTHROPIC_DEFAULT_SONNET_MODEL="${provider.defaultSonnetModel}"; `;
+          }
+          if (provider.defaultOpusModel) {
+            modelExport += `export ANTHROPIC_DEFAULT_OPUS_MODEL="${provider.defaultOpusModel}"; `;
+          }
+          const exportCmd = `${modelExport}export ANTHROPIC_BASE_URL="${provider.baseUrl}"; export ANTHROPIC_AUTH_TOKEN="${provider.key}"; claude`;
           args = ['-l', '-i', '-c', exportCmd];
           useShell = false;
         }
@@ -604,6 +656,15 @@ export class CommandExecutor {
           console.log(`   3. 或者手动设置环境变量后运行 claude：`);
           console.log(`      $env:ANTHROPIC_BASE_URL="${provider.baseUrl}"`);
           console.log(`      $env:ANTHROPIC_AUTH_TOKEN="${provider.key}"`);
+          if (provider.defaultHaikuModel) {
+            console.log(`      $env:ANTHROPIC_DEFAULT_HAIKU_MODEL="${provider.defaultHaikuModel}"`);
+          }
+          if (provider.defaultSonnetModel) {
+            console.log(`      $env:ANTHROPIC_DEFAULT_SONNET_MODEL="${provider.defaultSonnetModel}"`);
+          }
+          if (provider.defaultOpusModel) {
+            console.log(`      $env:ANTHROPIC_DEFAULT_OPUS_MODEL="${provider.defaultOpusModel}"`);
+          }
           console.log(`      claude`);
           console.log(`\n🔍 当前 PATH 包含的目录：`);
           const paths = (process.env.PATH || '').split(process.platform === 'win32' ? ';' : ':');

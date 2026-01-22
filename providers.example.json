@@ -3,7 +3,10 @@
     "name": "Provider1",
     "baseUrl": "https://api.example1.com",
     "key": "sk-your-api-key-here-replace-with-real-key",
-    "default": false
+    "default": false,
+    "defaultHaikuModel": "claude-3-5-haiku-20241022",
+    "defaultSonnetModel": "claude-3-5-sonnet-20241022",
+    "defaultOpusModel": "claude-3-5-opus-20241022"
   },
   {
     "name": "Provider2",

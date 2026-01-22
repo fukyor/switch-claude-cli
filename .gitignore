@@ -146,3 +146,6 @@ dev/
 # Test files
 test-*.json
 *.test.json
+
+# .claude
+.claude/**

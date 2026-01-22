@@ -105,6 +105,24 @@ export class CliInterface {
           message: '是否设置为默认 Provider?',
           default: existingProviders.length === 0,
         },
+        {
+          type: 'input',
+          name: 'defaultHaikuModel',
+          message: '默认 Haiku 模型 (可选，留空使用默认):',
+          default: '',
+        },
+        {
+          type: 'input',
+          name: 'defaultSonnetModel',
+          message: '默认 Sonnet 模型 (可选，留空使用默认):',
+          default: '',
+        },
+        {
+          type: 'input',
+          name: 'defaultOpusModel',
+          message: '默认 Opus 模型 (可选，留空使用默认):',
+          default: '',
+        },
       ]);
 
       const provider: Provider = {
@@ -117,6 +135,17 @@ export class CliInterface {
       // 只有当用户输入了代理地址时才添加 proxy 字段
       if (answers.proxy && answers.proxy.trim()) {
         provider.proxy = answers.proxy.trim();
+      }
+
+      // 只有当用户输入了模型名称时才添加对应字段
+      if (answers.defaultHaikuModel && answers.defaultHaikuModel.trim()) {
+        provider.defaultHaikuModel = answers.defaultHaikuModel.trim();
+      }
+      if (answers.defaultSonnetModel && answers.defaultSonnetModel.trim()) {
+        provider.defaultSonnetModel = answers.defaultSonnetModel.trim();
+      }
+      if (answers.defaultOpusModel && answers.defaultOpusModel.trim()) {
+        provider.defaultOpusModel = answers.defaultOpusModel.trim();
       }
 
       return provider;
@@ -202,6 +231,24 @@ export class CliInterface {
           message: '是否设置为默认 Provider?',
           default: provider.default || false,
         },
+        {
+          type: 'input',
+          name: 'defaultHaikuModel',
+          message: '默认 Haiku 模型 (可选，留空使用默认):',
+          default: provider.defaultHaikuModel || '',
+        },
+        {
+          type: 'input',
+          name: 'defaultSonnetModel',
+          message: '默认 Sonnet 模型 (可选，留空使用默认):',
+          default: provider.defaultSonnetModel || '',
+        },
+        {
+          type: 'input',
+          name: 'defaultOpusModel',
+          message: '默认 Opus 模型 (可选，留空使用默认):',
+          default: provider.defaultOpusModel || '',
+        },
       ]);
 
       const updatedProvider: Provider = {
@@ -214,6 +261,17 @@ export class CliInterface {
       // 只有当用户输入了代理地址时才添加 proxy 字段
       if (answers.proxy && answers.proxy.trim()) {
         updatedProvider.proxy = answers.proxy.trim();
+      }
+
+      // 只有当用户输入了模型名称时才添加对应字段
+      if (answers.defaultHaikuModel && answers.defaultHaikuModel.trim()) {
+        updatedProvider.defaultHaikuModel = answers.defaultHaikuModel.trim();
+      }
+      if (answers.defaultSonnetModel && answers.defaultSonnetModel.trim()) {
+        updatedProvider.defaultSonnetModel = answers.defaultSonnetModel.trim();
+      }
+      if (answers.defaultOpusModel && answers.defaultOpusModel.trim()) {
+        updatedProvider.defaultOpusModel = answers.defaultOpusModel.trim();
       }
 
       return updatedProvider;
