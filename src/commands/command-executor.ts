@@ -10,6 +10,7 @@ import { FileUtils } from '../utils/file-utils.js';
 import { ValidationUtils } from '../utils/validation.js';
 import { normalizeProxyUrl } from '../utils/proxy-utils.js';
 import { StatsManager } from '../core/stats-manager.js';
+import { ProviderUtils } from '../utils/provider-utils.js';
 import updateNotifier from 'update-notifier';
 import { spawn } from 'child_process';
 import path from 'node:path';
@@ -507,6 +508,10 @@ export class CommandExecutor {
       process.env.ANTHROPIC_DEFAULT_OPUS_MODEL = provider.defaultOpusModel;
     }
 
+    // 提取并应用自定义字段为环境变量
+    const customFields = ProviderUtils.extractCustomFields(provider);
+    const customFieldsCount = ProviderUtils.applyCustomFieldsToEnv(customFields);
+
     console.log(`\n✅ 已切换到: ${provider.name} (${provider.baseUrl})`);
     console.log(`\n🔧 环境变量已设置:`);
     console.log(`   ANTHROPIC_BASE_URL=${provider.baseUrl}`);
@@ -527,6 +532,14 @@ export class CommandExecutor {
     }
     if (provider.defaultOpusModel) {
       console.log(`   ANTHROPIC_DEFAULT_OPUS_MODEL=${provider.defaultOpusModel}`);
+    }
+
+    // 显示自定义字段
+    if (customFieldsCount > 0) {
+      console.log(`\n   自定义字段:`);
+      for (const [key, value] of Object.entries(customFields)) {
+        console.log(`   ${key}=${value}`);
+      }
     }
 
     const responseTime = provider.testResult?.responseTime ?? null;
@@ -550,6 +563,12 @@ export class CommandExecutor {
       }
       if (provider.defaultOpusModel) {
         console.log(`   $env:ANTHROPIC_DEFAULT_OPUS_MODEL="${provider.defaultOpusModel}"`);
+      }
+      // 显示自定义字段的 PowerShell 命令
+      if (customFieldsCount > 0) {
+        for (const [key, value] of Object.entries(customFields)) {
+          console.log(`   $env:${key}="${value}"`);
+        }
       }
       console.log(`   claude`);
       return { success: true, message: '', exitCode: 0 };
@@ -610,7 +629,14 @@ export class CommandExecutor {
           if (provider.defaultOpusModel) {
             modelEnv += `set "ANTHROPIC_DEFAULT_OPUS_MODEL=${provider.defaultOpusModel}" && `;
           }
-          const winCmd = `${modelEnv}set "ANTHROPIC_BASE_URL=${provider.baseUrl}" && set "ANTHROPIC_AUTH_TOKEN=${provider.key}" && claude`;
+          // 构建包含自定义字段的命令
+          let customEnv = '';
+          if (customFieldsCount > 0) {
+            for (const [key, value] of Object.entries(customFields)) {
+              customEnv += `set "${key}=${value}" && `;
+            }
+          }
+          const winCmd = `${customEnv}${modelEnv}set "ANTHROPIC_BASE_URL=${provider.baseUrl}" && set "ANTHROPIC_AUTH_TOKEN=${provider.key}" && claude`;
           args = ['/c', winCmd];
           useShell = false;
         } else {
@@ -627,7 +653,14 @@ export class CommandExecutor {
           if (provider.defaultOpusModel) {
             modelExport += `export ANTHROPIC_DEFAULT_OPUS_MODEL="${provider.defaultOpusModel}"; `;
           }
-          const exportCmd = `${modelExport}export ANTHROPIC_BASE_URL="${provider.baseUrl}"; export ANTHROPIC_AUTH_TOKEN="${provider.key}"; claude`;
+          // 构建包含自定义字段的命令
+          let customExport = '';
+          if (customFieldsCount > 0) {
+            for (const [key, value] of Object.entries(customFields)) {
+              customExport += `export ${key}="${value}"; `;
+            }
+          }
+          const exportCmd = `${customExport}${modelExport}export ANTHROPIC_BASE_URL="${provider.baseUrl}"; export ANTHROPIC_AUTH_TOKEN="${provider.key}"; claude`;
           args = ['-l', '-i', '-c', exportCmd];
           useShell = false;
         }
@@ -664,6 +697,12 @@ export class CommandExecutor {
           }
           if (provider.defaultOpusModel) {
             console.log(`      $env:ANTHROPIC_DEFAULT_OPUS_MODEL="${provider.defaultOpusModel}"`);
+          }
+          // 显示自定义字段的 PowerShell 命令
+          if (customFieldsCount > 0) {
+            for (const [key, value] of Object.entries(customFields)) {
+              console.log(`      $env:${key}="${value}"`);
+            }
           }
           console.log(`      claude`);
           console.log(`\n🔍 当前 PATH 包含的目录：`);
