@@ -19,6 +19,8 @@ export interface Provider {
   defaultSonnetModel?: string;
   /** 默认 Opus 模型 */
   defaultOpusModel?: string;
+  /** 是否为 Codex Provider（默认为 false，即 Claude Provider） */
+  isCodex?: boolean;
 }
 
 export interface TestResult {
@@ -64,7 +66,8 @@ export interface CliOptions {
   stats?: boolean;
   exportStats?: boolean;
   resetStats?: boolean;
-  noCheck?: boolean;
+  check?: boolean;
+  codex?: boolean;
   providerIndex?: string;
   exportPath?: string;
   importPath?: string;

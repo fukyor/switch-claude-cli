@@ -55,8 +55,14 @@ export class CliParser {
           options.envOnly = true;
           break;
 
-        case '--no-check':
-          options.noCheck = true;
+        case '-c':
+        case '--check':
+          options.check = true;
+          break;
+
+        case '-x':
+        case '--codex':
+          options.codex = true;
           break;
 
         case '--add':
@@ -274,10 +280,15 @@ export class CliParser {
 用法: switch-claude [选项] [provider编号]
 
 常用命令:
-  switch-claude              # 交互式选择 provider
-  switch-claude 1            # 直接选择编号为 1 的 provider
-  switch-claude --add        # 添加新的 provider
-  switch-claude --list       # 列出所有 providers
+  switch-claude              # 交互式选择 Claude provider
+  switch-claude 1            # 直接选择编号为 1 的 Claude provider
+  switch-claude --codex      # 交互式选择 Codex provider
+  switch-claude --codex 1    # 直接选择编号为 1 的 Codex provider
+  switch-claude --add        # 添加新的 Claude provider
+  switch-claude --codex --add # 添加新的 Codex provider
+  switch-claude --list       # 列出所有 Claude providers
+  switch-claude -c           # 交互式选择前强制检测可用性
+  switch-claude --codex --list # 列出所有 Codex providers
 
 使用 --help 查看完整帮助信息
 `;

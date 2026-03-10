@@ -86,11 +86,12 @@ export class OutputFormatter {
 选项:
   -h, --help          显示帮助信息
   -V, --version       显示版本信息并检查更新
+  -x, --codex         使用 Codex 模式（默认为 Claude 模式）
   -r, --refresh       强制刷新缓存，重新检测所有 provider
   -v, --verbose       显示详细的调试信息
-  -l, --list          只列出 providers 不启动 claude
-  -e, --env-only      只设置环境变量，不启动 claude
-  --no-check          跳过 API 可用性检测，直接使用 provider
+  -l, --list          只列出 providers 不启动应用
+  -e, --env-only      只设置环境变量，不启动应用
+  -c, --check         强制检测 API 可用性（默认跳过检测，直接使用 provider）
   --add               添加新的 provider
   --edit <编号>       编辑指定编号的 provider
   --remove <编号>     删除指定编号的 provider
@@ -110,18 +111,27 @@ export class OutputFormatter {
   编号                直接选择指定编号的 provider（自动跳过 API 检测）
 
 示例:
-  switch-claude           # 交互式选择
-  switch-claude 1         # 直接选择编号为 1 的 provider（跳过检测）
+  # Claude 模式（默认）
+  switch-claude           # 交互式选择 Claude provider
+  switch-claude 1         # 直接选择编号为 1 的 Claude provider
+  switch-claude --list    # 列出所有 Claude providers
+  switch-claude --add     # 添加新的 Claude provider
+
+  # Codex 模式
+  switch-claude --codex   # 交互式选择 Codex provider
+  switch-claude --codex 1 # 直接选择编号为 1 的 Codex provider
+  switch-claude --codex --list # 列出所有 Codex providers
+  switch-claude --codex --add  # 添加新的 Codex provider
+
+  # 其他示例
   switch-claude --refresh # 强制刷新缓存后选择
   switch-claude -v 2      # 详细模式选择编号为 2 的 provider
-  switch-claude --no-check # 跳过检测，使用默认或交互选择
-  switch-claude --list    # 只列出所有 providers
-  switch-claude --add     # 添加新的 provider
+  switch-claude --check   # 强制检测 API 可用性
   switch-claude --edit 2  # 编辑编号为 2 的 provider
   switch-claude --remove 2 # 删除编号为 2 的 provider
   switch-claude --set-default 1 # 设置编号为 1 的 provider 为默认
   switch-claude --clear-default  # 清除默认设置
-  switch-claude -e 1      # 只设置环境变量，不启动 claude
+  switch-claude -e 1      # 只设置环境变量，不启动应用
   switch-claude --export  # 导出配置到带时间戳的文件
   switch-claude --export my-config.json # 导出到指定文件
   switch-claude --import backup.json # 导入配置（替换）

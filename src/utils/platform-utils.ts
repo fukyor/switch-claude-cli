@@ -120,6 +120,114 @@ export class PlatformUtils {
   }
 
   /**
+   * 查找 Codex 命令的路径
+   */
+  static async findCodexCommand(): Promise<string | null> {
+    const platform = this.getPlatform();
+    const { execSync } = await import('child_process');
+
+    // 1) 系统 PATH 中的可执行文件
+    try {
+      const cmd = platform === 'windows' ? 'where codex' : 'which codex';
+      const out = execSync(cmd, {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 3000,
+      }).trim();
+      if (out && out.startsWith('/') && out.includes('/')) return out;
+    } catch {
+      // ignore
+    }
+
+    // 2) 用户默认 shell 的登录+交互环境
+    if (platform !== 'windows') {
+      try {
+        const userShell = this.getUserShell();
+        const probe = `${userShell} -l -i -c "alias codex || type -a codex || whence -a codex || which codex || command -v codex"`;
+        const out = execSync(probe, {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+          timeout: 4000,
+        }).trim();
+
+        const lines = out.split('\n').map((l) => l.trim()).filter(Boolean);
+        for (const line of lines) {
+          const pathMatch = line.match(/(\/[^\s'"`]+)/);
+          if (pathMatch && pathMatch[1]) {
+            return pathMatch[1];
+          }
+
+          const aliasMatch = line.match(/^(?:alias\s+)?codex=(.*)$/);
+          if (aliasMatch) {
+            const rhsRaw = aliasMatch[1]!.trim();
+            const firstToken = rhsRaw.split(/\s+/)[0] || '';
+            const candidate = firstToken.replace(/^['"`]/, '').replace(/['"`]$/, '');
+            if (candidate.startsWith('/')) {
+              return candidate;
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // 3) 常见安装路径
+    const commonPaths = this.getCommonCodexPaths();
+    const { existsSync } = await import('fs');
+
+    for (const path of commonPaths) {
+      if (existsSync(path)) {
+        return path;
+      }
+    }
+
+    // 4) 环境变量
+    const codexPath = process.env.CODEX_PATH;
+    if (codexPath && existsSync(codexPath)) {
+      return codexPath;
+    }
+
+    return null;
+  }
+
+  /**
+   * 获取常见的 Codex 安装路径
+   */
+  private static getCommonCodexPaths(): string[] {
+    const platform = this.getPlatform();
+
+    switch (platform) {
+      case 'windows':
+        return [
+          'C:\\Program Files\\Codex\\codex.exe',
+          'C:\\Program Files (x86)\\Codex\\codex.exe',
+          `${process.env.USERPROFILE}\\AppData\\Local\\Codex\\codex.exe`,
+          `${process.env.USERPROFILE}\\AppData\\Roaming\\npm\\codex.cmd`,
+          'codex.exe',
+        ];
+      case 'macos':
+        return [
+          '/Applications/Codex.app/Contents/MacOS/codex',
+          '/usr/local/bin/codex',
+          '/opt/homebrew/bin/codex',
+          `${process.env.HOME}/.local/bin/codex`,
+          '/usr/bin/codex',
+        ];
+      case 'linux':
+        return [
+          '/usr/local/bin/codex',
+          '/usr/bin/codex',
+          `${process.env.HOME}/.local/bin/codex`,
+          '/snap/bin/codex',
+          '/opt/codex/bin/codex',
+        ];
+      default:
+        return ['/usr/local/bin/codex', '/usr/bin/codex'];
+    }
+  }
+
+  /**
    * 获取常见的Claude安装路径
    */
   private static getCommonClaudePaths(): string[] {

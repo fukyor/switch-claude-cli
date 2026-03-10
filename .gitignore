@@ -149,3 +149,4 @@ test-*.json
 
 # .claude
 .claude/**
+.gitnexus

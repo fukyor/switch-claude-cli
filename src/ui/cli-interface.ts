@@ -40,8 +40,9 @@ export class CliInterface {
   /**
    * 交互式添加Provider
    */
-  static async addProvider(existingProviders: Provider[]): Promise<Provider | null> {
-    console.log('\n🚀 添加新的 Provider\n');
+  static async addProvider(existingProviders: Provider[], isCodex: boolean = false): Promise<Provider | null> {
+    const mode = isCodex ? 'Codex' : 'Claude';
+    console.log(`\n🚀 添加新的 ${mode} Provider\n`);
 
     const existingNames = existingProviders.map((p) => p.name);
 
@@ -52,7 +53,7 @@ export class CliInterface {
     }
 
     try {
-      const answers = await inquirer.prompt([
+      const questions: any[] = [
         {
           type: 'input',
           name: 'name',
@@ -105,25 +106,33 @@ export class CliInterface {
           message: '是否设置为默认 Provider?',
           default: existingProviders.length === 0,
         },
-        {
-          type: 'input',
-          name: 'defaultHaikuModel',
-          message: '默认 Haiku 模型 (可选，留空使用默认):',
-          default: '',
-        },
-        {
-          type: 'input',
-          name: 'defaultSonnetModel',
-          message: '默认 Sonnet 模型 (可选，留空使用默认):',
-          default: '',
-        },
-        {
-          type: 'input',
-          name: 'defaultOpusModel',
-          message: '默认 Opus 模型 (可选，留空使用默认):',
-          default: '',
-        },
-      ]);
+      ];
+
+      // 只有 Claude Provider 才需要模型配置
+      if (!isCodex) {
+        questions.push(
+          {
+            type: 'input',
+            name: 'defaultHaikuModel',
+            message: '默认 Haiku 模型 (可选，留空使用默认):',
+            default: '',
+          },
+          {
+            type: 'input',
+            name: 'defaultSonnetModel',
+            message: '默认 Sonnet 模型 (可选，留空使用默认):',
+            default: '',
+          },
+          {
+            type: 'input',
+            name: 'defaultOpusModel',
+            message: '默认 Opus 模型 (可选，留空使用默认):',
+            default: '',
+          }
+        );
+      }
+
+      const answers = await inquirer.prompt(questions);
 
       const provider: Provider = {
         name: answers.name.trim(),
@@ -132,20 +141,27 @@ export class CliInterface {
         default: answers.setAsDefault,
       };
 
+      // 设置 isCodex 标志
+      if (isCodex) {
+        provider.isCodex = true;
+      }
+
       // 只有当用户输入了代理地址时才添加 proxy 字段
       if (answers.proxy && answers.proxy.trim()) {
         provider.proxy = answers.proxy.trim();
       }
 
-      // 只有当用户输入了模型名称时才添加对应字段
-      if (answers.defaultHaikuModel && answers.defaultHaikuModel.trim()) {
-        provider.defaultHaikuModel = answers.defaultHaikuModel.trim();
-      }
-      if (answers.defaultSonnetModel && answers.defaultSonnetModel.trim()) {
-        provider.defaultSonnetModel = answers.defaultSonnetModel.trim();
-      }
-      if (answers.defaultOpusModel && answers.defaultOpusModel.trim()) {
-        provider.defaultOpusModel = answers.defaultOpusModel.trim();
+      // 只有当用户输入了模型名称时才添加对应字段（仅 Claude）
+      if (!isCodex) {
+        if (answers.defaultHaikuModel && answers.defaultHaikuModel.trim()) {
+          provider.defaultHaikuModel = answers.defaultHaikuModel.trim();
+        }
+        if (answers.defaultSonnetModel && answers.defaultSonnetModel.trim()) {
+          provider.defaultSonnetModel = answers.defaultSonnetModel.trim();
+        }
+        if (answers.defaultOpusModel && answers.defaultOpusModel.trim()) {
+          provider.defaultOpusModel = answers.defaultOpusModel.trim();
+        }
       }
 
       return provider;

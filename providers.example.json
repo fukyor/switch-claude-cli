@@ -12,7 +12,8 @@
     "name": "Provider2",
     "baseUrl": "https://api.example2.com",
     "key": "cr_your-api-key-here-replace-with-real-key",
-    "default": false
+    "default": false,
+    "isCodex": true
   },
   {
     "name": "Provider3",

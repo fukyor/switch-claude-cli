@@ -30,7 +30,16 @@ export class ConfigManager {
 
     try {
       const content = fs.readFileSync(this.configPath, 'utf-8');
-      const providers = JSON.parse(content) as Provider[];
+      let providers = JSON.parse(content) as Provider[];
+
+      // 自动清理字符串字段的尾随空格，防止解析错误
+      providers = providers.map(p => ({
+        ...p,
+        name: typeof p.name === 'string' ? p.name.trim() : p.name,
+        baseUrl: typeof p.baseUrl === 'string' ? p.baseUrl.trim() : p.baseUrl,
+        key: typeof p.key === 'string' ? p.key.trim() : p.key,
+      }));
+
 
       // 验证配置
       const errors = ValidationUtils.validateProviders(providers);

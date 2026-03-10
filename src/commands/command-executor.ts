@@ -79,6 +79,18 @@ export class CommandExecutor {
 
       const providers = loadResult.result;
 
+      // 根据 --codex 参数过滤 Provider
+      const filteredProviders = options.codex
+        ? providers.filter((p) => p.isCodex === true)
+        : providers.filter((p) => !p.isCodex);
+
+      if (filteredProviders.length === 0) {
+        const mode = options.codex ? 'Codex' : 'Claude';
+        return this.createErrorResult(
+          `没有配置任何 ${mode} Provider。请使用 ${options.codex ? '--codex ' : ''}--add 添加。`
+        );
+      }
+
       // 处理不需要显示provider列表的命令
       if (options.export) {
         return this.executeExportCommand(providers, options.exportPath);
@@ -112,8 +124,9 @@ export class CommandExecutor {
           !options.clearDefault);
 
       if (shouldShowList) {
-        console.log('📋 配置的 Provider 列表：\n');
-        providers.forEach((p, i) => {
+        const mode = options.codex ? 'Codex' : 'Claude';
+        console.log(`📋 配置的 ${mode} Provider 列表：\n`);
+        filteredProviders.forEach((p, i) => {
           console.log(`[${i + 1}] ${p.name} (${p.baseUrl})${p.default ? ' ⭐默认' : ''}`);
         });
       }
@@ -124,27 +137,27 @@ export class CommandExecutor {
       }
 
       if (options.add) {
-        return this.executeAddCommand(providers);
+        return this.executeAddCommand(providers, options.codex || false);
       }
 
       if (options.edit && options.providerIndex) {
-        return this.executeEditCommand(providers, options.providerIndex);
+        return this.executeEditCommand(filteredProviders, options.providerIndex);
       }
 
       if (options.remove && options.providerIndex) {
-        return this.executeRemoveCommand(providers, options.providerIndex);
+        return this.executeRemoveCommand(providers, options.providerIndex, filteredProviders);
       }
 
       if (options.setDefault && options.providerIndex) {
-        return this.executeSetDefaultCommand(providers, options.providerIndex);
+        return this.executeSetDefaultCommand(filteredProviders, options.providerIndex);
       }
 
       if (options.clearDefault) {
-        return this.executeClearDefaultCommand(providers);
+        return this.executeClearDefaultCommand(filteredProviders);
       }
 
       // 主要功能：批量检测并选择Provider
-      return await this.executeMainFlow(providers, providerIndex, options);
+      return await this.executeMainFlow(filteredProviders, providerIndex, options);
     } catch (error) {
       return this.createErrorResult(error instanceof Error ? error.message : String(error));
     }
@@ -242,8 +255,8 @@ export class CommandExecutor {
   ): Promise<CommandResult> {
     // 注意：Provider列表已经在调用此方法之前显示了
 
-    // 如果指定了 providerIndex 或 --no-check，直接使用不检测
-    if ((providerIndex !== undefined || options.noCheck) && !options.refresh) {
+    // 如果指定了 providerIndex，或没有开启 --check 参数，且不刷新，则直接使用不检测
+    if ((providerIndex !== undefined || !options.check) && !options.refresh) {
       return this.executeDirectSelection(providers, providerIndex, options);
     }
 
@@ -432,8 +445,8 @@ export class CommandExecutor {
       }
     }
 
-    // 7. 启动Claude
-    return this.launchClaude(selected, options.envOnly);
+    // 7. 启动应用
+    return this.launchApp(selected, options.envOnly, options.codex || false);
   }
 
   /**
@@ -472,16 +485,17 @@ export class CommandExecutor {
       }
     }
 
-    // 启动 Claude
-    return this.launchClaude(selected, options.envOnly);
+    // 启动应用
+    return this.launchApp(selected, options.envOnly, options.codex || false);
   }
 
   /**
-   * 启动 Claude
+   * 启动应用（Claude Code 或 Codex）
    */
-  private async launchClaude(
+  private async launchApp(
     provider: Provider & { testResult?: TestResult },
-    envOnly: boolean = false
+    envOnly: boolean = false,
+    isCodex: boolean = false
   ): Promise<CommandResult> {
     // 设置代理环境变量（如果配置了）
     if (provider.proxy) {
@@ -493,45 +507,70 @@ export class CommandExecutor {
       process.env.https_proxy = normalizedProxy;
     }
 
-    // 设置环境变量 - 使用原版的环境变量名称
-    process.env.ANTHROPIC_BASE_URL = provider.baseUrl;
-    process.env.ANTHROPIC_AUTH_TOKEN = provider.key;
+    // 根据模式设置不同的环境变量
+    if (isCodex) {
+      // Codex 模式：使用 OpenAI 环境变量
+      process.env.OPENAI_BASE_URL = provider.baseUrl;
+      process.env.OPENAI_API_KEY = provider.key;
 
-    // 设置模型环境变量
-    if (provider.defaultHaikuModel) {
-      process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL = provider.defaultHaikuModel;
-    }
-    if (provider.defaultSonnetModel) {
-      process.env.ANTHROPIC_DEFAULT_SONNET_MODEL = provider.defaultSonnetModel;
-    }
-    if (provider.defaultOpusModel) {
-      process.env.ANTHROPIC_DEFAULT_OPUS_MODEL = provider.defaultOpusModel;
+      // 清除可能存在的 Anthropic 环境变量（避免冲突）
+      delete process.env.ANTHROPIC_BASE_URL;
+      delete process.env.ANTHROPIC_AUTH_TOKEN;
+      delete process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL;
+      delete process.env.ANTHROPIC_DEFAULT_SONNET_MODEL;
+      delete process.env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+    } else {
+      // Claude 模式：使用 Anthropic 环境变量
+      process.env.ANTHROPIC_BASE_URL = provider.baseUrl;
+      process.env.ANTHROPIC_AUTH_TOKEN = provider.key;
+
+      // 设置模型环境变量
+      if (provider.defaultHaikuModel) {
+        process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL = provider.defaultHaikuModel;
+      }
+      if (provider.defaultSonnetModel) {
+        process.env.ANTHROPIC_DEFAULT_SONNET_MODEL = provider.defaultSonnetModel;
+      }
+      if (provider.defaultOpusModel) {
+        process.env.ANTHROPIC_DEFAULT_OPUS_MODEL = provider.defaultOpusModel;
+      }
+
+      // 清除可能存在的 OpenAI 环境变量（避免冲突）
+      delete process.env.OPENAI_BASE_URL;
+      delete process.env.OPENAI_API_KEY;
     }
 
     // 提取并应用自定义字段为环境变量
     const customFields = ProviderUtils.extractCustomFields(provider);
     const customFieldsCount = ProviderUtils.applyCustomFieldsToEnv(customFields);
 
+    const appName = isCodex ? 'Codex' : 'Claude Code';
     console.log(`\n✅ 已切换到: ${provider.name} (${provider.baseUrl})`);
     console.log(`\n🔧 环境变量已设置:`);
-    console.log(`   ANTHROPIC_BASE_URL=${provider.baseUrl}`);
-    console.log(`   ANTHROPIC_AUTH_TOKEN=${provider.key.slice(0, 12)}...`);
-    
+
+    if (isCodex) {
+      console.log(`   OPENAI_BASE_URL=${provider.baseUrl}`);
+      console.log(`   OPENAI_API_KEY=${provider.key.slice(0, 12)}...`);
+    } else {
+      console.log(`   ANTHROPIC_BASE_URL=${provider.baseUrl}`);
+      console.log(`   ANTHROPIC_AUTH_TOKEN=${provider.key.slice(0, 12)}...`);
+
+      if (provider.defaultHaikuModel) {
+        console.log(`   ANTHROPIC_DEFAULT_HAIKU_MODEL=${provider.defaultHaikuModel}`);
+      }
+      if (provider.defaultSonnetModel) {
+        console.log(`   ANTHROPIC_DEFAULT_SONNET_MODEL=${provider.defaultSonnetModel}`);
+      }
+      if (provider.defaultOpusModel) {
+        console.log(`   ANTHROPIC_DEFAULT_OPUS_MODEL=${provider.defaultOpusModel}`);
+      }
+    }
+
     if (provider.proxy) {
       // 显示标准化后的代理地址
       const normalizedProxy = normalizeProxyUrl(provider.proxy);
       console.log(`   HTTP_PROXY=${normalizedProxy}`);
       console.log(`   HTTPS_PROXY=${normalizedProxy}`);
-    }
-
-    if (provider.defaultHaikuModel) {
-      console.log(`   ANTHROPIC_DEFAULT_HAIKU_MODEL=${provider.defaultHaikuModel}`);
-    }
-    if (provider.defaultSonnetModel) {
-      console.log(`   ANTHROPIC_DEFAULT_SONNET_MODEL=${provider.defaultSonnetModel}`);
-    }
-    if (provider.defaultOpusModel) {
-      console.log(`   ANTHROPIC_DEFAULT_OPUS_MODEL=${provider.defaultOpusModel}`);
     }
 
     // 显示自定义字段
@@ -545,124 +584,157 @@ export class CommandExecutor {
     const responseTime = provider.testResult?.responseTime ?? null;
     StatsManager.recordProviderUse(provider.name, true, responseTime);
 
+    const commandName = isCodex ? 'codex' : 'claude';
+
     if (envOnly) {
-      console.log(`\n📋 环境变量设置完成！你可以手动运行 claude 命令`);
+      console.log(`\n📋 环境变量设置完成！你可以手动运行 ${commandName} 命令`);
       console.log(`\n💡 在当前会话中，你也可以使用这些命令：`);
       if (provider.proxy) {
         const normalizedProxy = normalizeProxyUrl(provider.proxy);
         console.log(`   $env:HTTP_PROXY="${normalizedProxy}"`);
         console.log(`   $env:HTTPS_PROXY="${normalizedProxy}"`);
       }
-      console.log(`   $env:ANTHROPIC_BASE_URL="${provider.baseUrl}"`);
-      console.log(`   $env:ANTHROPIC_AUTH_TOKEN="${provider.key}"`);
-      if (provider.defaultHaikuModel) {
-        console.log(`   $env:ANTHROPIC_DEFAULT_HAIKU_MODEL="${provider.defaultHaikuModel}"`);
+
+      if (isCodex) {
+        console.log(`   $env:OPENAI_BASE_URL="${provider.baseUrl}"`);
+        console.log(`   $env:OPENAI_API_KEY="${provider.key}"`);
+      } else {
+        console.log(`   $env:ANTHROPIC_BASE_URL="${provider.baseUrl}"`);
+        console.log(`   $env:ANTHROPIC_AUTH_TOKEN="${provider.key}"`);
+        if (provider.defaultHaikuModel) {
+          console.log(`   $env:ANTHROPIC_DEFAULT_HAIKU_MODEL="${provider.defaultHaikuModel}"`);
+        }
+        if (provider.defaultSonnetModel) {
+          console.log(`   $env:ANTHROPIC_DEFAULT_SONNET_MODEL="${provider.defaultSonnetModel}"`);
+        }
+        if (provider.defaultOpusModel) {
+          console.log(`   $env:ANTHROPIC_DEFAULT_OPUS_MODEL="${provider.defaultOpusModel}"`);
+        }
       }
-      if (provider.defaultSonnetModel) {
-        console.log(`   $env:ANTHROPIC_DEFAULT_SONNET_MODEL="${provider.defaultSonnetModel}"`);
-      }
-      if (provider.defaultOpusModel) {
-        console.log(`   $env:ANTHROPIC_DEFAULT_OPUS_MODEL="${provider.defaultOpusModel}"`);
-      }
+
       // 显示自定义字段的 PowerShell 命令
       if (customFieldsCount > 0) {
         for (const [key, value] of Object.entries(customFields)) {
           console.log(`   $env:${key}="${value}"`);
         }
       }
-      console.log(`   claude`);
+      console.log(`   ${commandName}`);
       return { success: true, message: '', exitCode: 0 };
     }
 
-    // 尝试启动 claude
-    console.log(`\n🚀 正在启动 Claude Code...`);
+    // 尝试启动应用
+    console.log(`\n🚀 正在启动 ${appName}...`);
 
     // 优先查找绝对路径，其次回退到用户登录 shell 执行
-    const foundPath = await PlatformUtils.findClaudeCommand();
+    const foundPath = isCodex
+      ? await PlatformUtils.findCodexCommand()
+      : await PlatformUtils.findClaudeCommand();
     const isAbs = foundPath
       ? PlatformUtils.getPlatform() === 'windows'
         ? true
         : path.isAbsolute(foundPath)
       : false;
-    const claudePath = isAbs ? foundPath : null;
-    if (claudePath) {
-      console.log(`🔍 使用 claude 命令路径: ${claudePath}`);
+    const appPath = isAbs ? foundPath : null;
+    if (appPath) {
+      console.log(`🔍 使用 ${commandName} 命令路径: ${appPath}`);
     } else {
-      console.log('🔍 使用 claude 命令路径: 未解析到二进制，尝试通过登录 shell 执行');
+      console.log(`🔍 使用 ${commandName} 命令路径: 未解析到二进制，尝试通过登录 shell 执行`);
     }
 
     try {
       // 根据是否找到绝对路径，决定启动方式
-      let command = claudePath || '';
+      let command = appPath || '';
       let args: string[] = [];
       let useShell = false;
 
-      if (claudePath) {
+      if (appPath) {
         const platform = PlatformUtils.getPlatform();
         if (platform === 'windows') {
-          const ext = path.extname(claudePath).toLowerCase();
+          const ext = path.extname(appPath).toLowerCase();
           if (ext === '.cmd' || ext === '.bat') {
             command = 'cmd.exe';
-            args = ['/c', 'claude'];
+            args = ['/c', commandName];
           } else if (ext === '.ps1') {
             command = 'powershell.exe';
-            args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', claudePath];
+            args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', appPath];
           }
         } else {
-          command = claudePath;
+          command = appPath;
         }
       } else {
-        // 回退：通过用户的默认 shell 以“登录 + 交互”方式执行，确保加载别名/函数
+        // 回退：通过用户的默认 shell 以”登录 + 交互”方式执行，确保加载别名/函数
         const userShell = PlatformUtils.getUserShell();
         const platform = PlatformUtils.getPlatform();
         if (platform === 'windows') {
           // 在 Windows 上使用 cmd 执行（尽量避免对 PowerShell 的依赖）
           command = userShell; // 通常为 cmd.exe
-          // 构建包含模型环境变量的命令
-          let modelEnv = '';
-          if (provider.defaultHaikuModel) {
-            modelEnv += `set "ANTHROPIC_DEFAULT_HAIKU_MODEL=${provider.defaultHaikuModel}" && `;
-          }
-          if (provider.defaultSonnetModel) {
-            modelEnv += `set "ANTHROPIC_DEFAULT_SONNET_MODEL=${provider.defaultSonnetModel}" && `;
-          }
-          if (provider.defaultOpusModel) {
-            modelEnv += `set "ANTHROPIC_DEFAULT_OPUS_MODEL=${provider.defaultOpusModel}" && `;
-          }
-          // 构建包含自定义字段的命令
-          let customEnv = '';
-          if (customFieldsCount > 0) {
-            for (const [key, value] of Object.entries(customFields)) {
-              customEnv += `set "${key}=${value}" && `;
+
+          if (isCodex) {
+            // Codex 模式：使用 OpenAI 环境变量
+            let customEnv = '';
+            if (customFieldsCount > 0) {
+              for (const [key, value] of Object.entries(customFields)) {
+                customEnv += `set “${key}=${value}” && `;
+              }
             }
+            const winCmd = `${customEnv}set “OPENAI_BASE_URL=${provider.baseUrl}” && set “OPENAI_API_KEY=${provider.key}” && ${commandName}`;
+            args = ['/c', winCmd];
+          } else {
+            // Claude 模式：使用 Anthropic 环境变量
+            let modelEnv = '';
+            if (provider.defaultHaikuModel) {
+              modelEnv += `set “ANTHROPIC_DEFAULT_HAIKU_MODEL=${provider.defaultHaikuModel}” && `;
+            }
+            if (provider.defaultSonnetModel) {
+              modelEnv += `set “ANTHROPIC_DEFAULT_SONNET_MODEL=${provider.defaultSonnetModel}” && `;
+            }
+            if (provider.defaultOpusModel) {
+              modelEnv += `set “ANTHROPIC_DEFAULT_OPUS_MODEL=${provider.defaultOpusModel}” && `;
+            }
+            let customEnv = '';
+            if (customFieldsCount > 0) {
+              for (const [key, value] of Object.entries(customFields)) {
+                customEnv += `set “${key}=${value}” && `;
+              }
+            }
+            const winCmd = `${customEnv}${modelEnv}set “ANTHROPIC_BASE_URL=${provider.baseUrl}” && set “ANTHROPIC_AUTH_TOKEN=${provider.key}” && ${commandName}`;
+            args = ['/c', winCmd];
           }
-          const winCmd = `${customEnv}${modelEnv}set "ANTHROPIC_BASE_URL=${provider.baseUrl}" && set "ANTHROPIC_AUTH_TOKEN=${provider.key}" && claude`;
-          args = ['/c', winCmd];
-          useShell = false;
         } else {
           command = userShell;
           // -l 登录 shell（读取 zprofile/profile），-i 交互式（读取 zshrc/bashrc），-c 执行命令
-          // 构建包含模型环境变量的命令
-          let modelExport = '';
-          if (provider.defaultHaikuModel) {
-            modelExport += `export ANTHROPIC_DEFAULT_HAIKU_MODEL="${provider.defaultHaikuModel}"; `;
-          }
-          if (provider.defaultSonnetModel) {
-            modelExport += `export ANTHROPIC_DEFAULT_SONNET_MODEL="${provider.defaultSonnetModel}"; `;
-          }
-          if (provider.defaultOpusModel) {
-            modelExport += `export ANTHROPIC_DEFAULT_OPUS_MODEL="${provider.defaultOpusModel}"; `;
-          }
-          // 构建包含自定义字段的命令
-          let customExport = '';
-          if (customFieldsCount > 0) {
-            for (const [key, value] of Object.entries(customFields)) {
-              customExport += `export ${key}="${value}"; `;
+
+          if (isCodex) {
+            // Codex 模式：使用 OpenAI 环境变量
+            let customExport = '';
+            if (customFieldsCount > 0) {
+              for (const [key, value] of Object.entries(customFields)) {
+                customExport += `export ${key}=”${value}”; `;
+              }
             }
+            const exportCmd = `${customExport}export OPENAI_BASE_URL=”${provider.baseUrl}”; export OPENAI_API_KEY=”${provider.key}”; ${commandName}`;
+            args = ['-l', '-i', '-c', exportCmd];
+          } else {
+            // Claude 模式：使用 Anthropic 环境变量
+            let modelExport = '';
+            if (provider.defaultHaikuModel) {
+              modelExport += `export ANTHROPIC_DEFAULT_HAIKU_MODEL=”${provider.defaultHaikuModel}”; `;
+            }
+            if (provider.defaultSonnetModel) {
+              modelExport += `export ANTHROPIC_DEFAULT_SONNET_MODEL=”${provider.defaultSonnetModel}”; `;
+            }
+            if (provider.defaultOpusModel) {
+              modelExport += `export ANTHROPIC_DEFAULT_OPUS_MODEL=”${provider.defaultOpusModel}”; `;
+            }
+            let customExport = '';
+            if (customFieldsCount > 0) {
+              for (const [key, value] of Object.entries(customFields)) {
+                customExport += `export ${key}=”${value}”; `;
+              }
+            }
+            const exportCmd = `${customExport}${modelExport}export ANTHROPIC_BASE_URL=”${provider.baseUrl}”; export ANTHROPIC_AUTH_TOKEN=”${provider.key}”; ${commandName}`;
+            args = ['-l', '-i', '-c', exportCmd];
           }
-          const exportCmd = `${customExport}${modelExport}export ANTHROPIC_BASE_URL="${provider.baseUrl}"; export ANTHROPIC_AUTH_TOKEN="${provider.key}"; claude`;
-          args = ['-l', '-i', '-c', exportCmd];
-          useShell = false;
         }
 
         console.log(`🔁 通过登录 shell 启动: ${command} ${args.join(' ')}`);
@@ -672,73 +744,80 @@ export class CommandExecutor {
       delete childEnv.NODE_OPTIONS;
       delete (childEnv as Record<string, unknown>).VSCODE_INSPECTOR_OPTIONS;
 
-      // 为 Claude Code 设置正确的 stdin 配置以支持交互
-      const claude = spawn(command || 'claude', args, {
+      // 为应用设置正确的 stdin 配置以支持交互
+      const childProcess = spawn(command || commandName, args, {
         stdio: ['inherit', 'inherit', 'inherit'], // 继承 stdin, stdout, stderr
         env: childEnv,
         shell: useShell,
       });
 
-      claude.on('error', (error: unknown) => {
+      childProcess.on('error', (error: unknown) => {
         const err = error as { code?: string; message?: string };
         if (err && err.code === 'ENOENT') {
-          console.error(`\n❌ 找不到 'claude' 命令！`);
+          console.error(`\n❌ 找不到 '${commandName}' 命令！`);
           console.log(`\n💡 解决方案：`);
-          console.log(`   1. 确保 Claude Code 已正确安装`);
-          console.log(`   2. 检查 claude 命令是否在 PATH 环境变量中`);
-          console.log(`   3. 或者手动设置环境变量后运行 claude：`);
-          console.log(`      $env:ANTHROPIC_BASE_URL="${provider.baseUrl}"`);
-          console.log(`      $env:ANTHROPIC_AUTH_TOKEN="${provider.key}"`);
-          if (provider.defaultHaikuModel) {
-            console.log(`      $env:ANTHROPIC_DEFAULT_HAIKU_MODEL="${provider.defaultHaikuModel}"`);
+          console.log(`   1. 确保 ${appName} 已正确安装`);
+          console.log(`   2. 检查 ${commandName} 命令是否在 PATH 环境变量中`);
+          console.log(`   3. 或者手动设置环境变量后运行 ${commandName}：`);
+
+          if (isCodex) {
+            console.log(`      $env:OPENAI_BASE_URL="${provider.baseUrl}"`);
+            console.log(`      $env:OPENAI_API_KEY="${provider.key}"`);
+          } else {
+            console.log(`      $env:ANTHROPIC_BASE_URL="${provider.baseUrl}"`);
+            console.log(`      $env:ANTHROPIC_AUTH_TOKEN="${provider.key}"`);
+            if (provider.defaultHaikuModel) {
+              console.log(`      $env:ANTHROPIC_DEFAULT_HAIKU_MODEL="${provider.defaultHaikuModel}"`);
+            }
+            if (provider.defaultSonnetModel) {
+              console.log(`      $env:ANTHROPIC_DEFAULT_SONNET_MODEL="${provider.defaultSonnetModel}"`);
+            }
+            if (provider.defaultOpusModel) {
+              console.log(`      $env:ANTHROPIC_DEFAULT_OPUS_MODEL="${provider.defaultOpusModel}"`);
+            }
           }
-          if (provider.defaultSonnetModel) {
-            console.log(`      $env:ANTHROPIC_DEFAULT_SONNET_MODEL="${provider.defaultSonnetModel}"`);
-          }
-          if (provider.defaultOpusModel) {
-            console.log(`      $env:ANTHROPIC_DEFAULT_OPUS_MODEL="${provider.defaultOpusModel}"`);
-          }
+
           // 显示自定义字段的 PowerShell 命令
           if (customFieldsCount > 0) {
             for (const [key, value] of Object.entries(customFields)) {
               console.log(`      $env:${key}="${value}"`);
             }
           }
-          console.log(`      claude`);
+          console.log(`      ${commandName}`);
           console.log(`\n🔍 当前 PATH 包含的目录：`);
           const paths = (process.env.PATH || '').split(process.platform === 'win32' ? ';' : ':');
           paths.slice(0, 5).forEach((p) => console.log(`   - ${p}`));
           if (paths.length > 5) {
             console.log(`   ... 还有 ${paths.length - 5} 个目录`);
           }
-          if (!claudePath) {
-            console.log('\n🔁 备用方案：你也可以运行 "switch-claude -e <编号>"');
-            console.log('   然后在你的终端手动输入 "claude" 启动。');
+          if (!appPath) {
+            console.log(`\n🔁 备用方案：你也可以运行 "switch-claude ${isCodex ? '--codex ' : ''}-e <编号>"`);
+            console.log(`   然后在你的终端手动输入 "${commandName}" 启动。`);
           }
         } else {
           const msg = err && err.message ? err.message : String(error);
-          console.error(`\n❌ 启动 claude 时出错: ${msg}`);
+          console.error(`\n❌ 启动 ${commandName} 时出错: ${msg}`);
         }
         process.exit(1);
       });
 
-      claude.on('exit', (code) => {
+      childProcess.on('exit', (code) => {
         if (code !== 0 && code !== null) {
-          console.log(`\n⚠️  Claude Code 退出，退出码: ${code}`);
+          console.log(`\n⚠️  ${appName} 退出，退出码: ${code}`);
         }
         process.exit(code || 0);
       });
 
-      // 不返回结果，让程序继续运行等待Claude进程结束
-      console.log('✅ Claude 已启动');
+      // 不返回结果，让程序继续运行等待进程结束
+      console.log(`✅ ${appName} 已启动`);
 
-      // 返回一个永不resolve的Promise，让程序等待Claude进程结束
+      // 返回一个永不resolve的Promise，让程序等待进程结束
       return new Promise(() => {
-        // 这个Promise永远不会resolve，程序会一直等待直到Claude进程退出并调用process.exit()
+        // 这个Promise永远不会resolve，程序会一直等待直到进程退出并调用process.exit()
       });
     } catch (error) {
       return this.createErrorResult(
-        `启动 Claude 失败: ${error instanceof Error ? error.message : String(error)}`
+        `启动 ${commandName} 失败: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
@@ -755,8 +834,8 @@ export class CommandExecutor {
   /**
    * 执行添加命令
    */
-  private async executeAddCommand(providers: Provider[]): Promise<CommandResult> {
-    const newProvider = await CliInterface.addProvider(providers);
+  private async executeAddCommand(providers: Provider[], isCodex: boolean = false): Promise<CommandResult> {
+    const newProvider = await CliInterface.addProvider(providers, isCodex);
     if (!newProvider) {
       return this.createErrorResult('添加操作已取消', 0);
     }
@@ -824,33 +903,38 @@ export class CommandExecutor {
    * 执行删除命令
    */
   private async executeRemoveCommand(
-    providers: Provider[],
-    indexStr: string
+    allProviders: Provider[],
+    indexStr: string,
+    filteredProviders: Provider[]
   ): Promise<CommandResult> {
-    // 不允许删除最后一个 Provider，避免保存时报“配置文件为空”且信息重复
-    if (providers.length <= 1) {
+    // 不允许删除最后一个 Provider，避免保存时报”配置文件为空”且信息重复
+    if (allProviders.length <= 1) {
       return this.createErrorResult(
         '无法删除：至少需要一个 provider（请先添加新的 provider 后再删除）'
       );
     }
 
-    const validation = ValidationUtils.validateProviderIndex(indexStr, providers.length);
+    const validation = ValidationUtils.validateProviderIndex(indexStr, filteredProviders.length);
     if (!validation.valid) {
       return this.createErrorResult(validation.error || '无效索引');
     }
 
     const index = validation.value!;
-    const provider = providers[index]!;
+    const provider = filteredProviders[index]!;
 
     const confirmed = await CliInterface.confirmRemoveProvider(provider);
     if (!confirmed) {
       return this.createErrorResult('删除操作已取消', 0);
     }
 
-    providers.splice(index, 1);
+    // 从所有 providers 中删除
+    const allIndex = allProviders.findIndex(p => p.name === provider.name);
+    if (allIndex !== -1) {
+      allProviders.splice(allIndex, 1);
+    }
 
     const saveResult = await this.handleAsyncOperation(
-      () => this.configManager.saveProviders(providers),
+      () => this.configManager.saveProviders(allProviders),
       '保存配置失败'
     );
 
@@ -858,7 +942,7 @@ export class CommandExecutor {
       return this.createErrorResult(saveResult.error || '保存失败');
     }
 
-    return this.createSuccessResult(`Provider "${provider.name}" 删除成功`);
+    return this.createSuccessResult(`Provider “${provider.name}” 删除成功`);
   }
 
   /**
