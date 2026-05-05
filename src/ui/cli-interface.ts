@@ -1,7 +1,6 @@
 import inquirer from 'inquirer';
 import type { Provider } from '../types/index.js';
 import { ValidationUtils } from '../utils/validation.js';
-import { FileUtils } from '../utils/file-utils.js';
 import { getProxyFromEnv, isValidProxy } from '../utils/proxy-utils.js';
 
 export class CliInterface {
@@ -40,7 +39,10 @@ export class CliInterface {
   /**
    * 交互式添加Provider
    */
-  static async addProvider(existingProviders: Provider[], isCodex: boolean = false): Promise<Provider | null> {
+  static async addProvider(
+    existingProviders: Provider[],
+    isCodex: boolean = false
+  ): Promise<Provider | null> {
     const mode = isCodex ? 'Codex' : 'Claude';
     console.log(`\n🚀 添加新的 ${mode} Provider\n`);
 
@@ -416,13 +418,13 @@ export class CliInterface {
 用法:
   switch-claude [选项] [编号]
 
-选项:
+  选项:
   -h, --help          显示帮助信息
   -V, --version       显示版本信息并检查更新
   -r, --refresh       强制刷新缓存，重新检测所有 provider
   -v, --verbose       显示详细的调试信息
   -l, --list          只列出 providers 不启动 claude
-  -e, --env-only      只设置环境变量，不启动 claude
+  -e, --env-only      仅 Claude 模式：只设置环境变量，不启动 Claude Code
   --add               添加新的 provider
   --remove <编号>     删除指定编号的 provider
   --set-default <编号> 设置指定编号的 provider 为默认
@@ -446,7 +448,7 @@ export class CliInterface {
   switch-claude --remove 2 # 删除编号为 2 的 provider
   switch-claude --set-default 1 # 设置编号为 1 的 provider 为默认
   switch-claude --clear-default  # 清除默认设置
-  switch-claude -e 1      # 只设置环境变量，不启动 claude`);
+  switch-claude -e 1      # 仅 Claude：只设置环境变量，不启动 Claude Code`);
   }
 
   /**

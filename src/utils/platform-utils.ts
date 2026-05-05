@@ -55,7 +55,8 @@ export class PlatformUtils {
         stdio: ['ignore', 'pipe', 'ignore'],
         timeout: 3000,
       }).trim();
-      if (out && out.startsWith('/') && out.includes('/')) return out;
+      const resolvedPath = extractExecutablePath(out, platform);
+      if (resolvedPath) return resolvedPath;
     } catch {
       // ignore
     }
@@ -134,7 +135,8 @@ export class PlatformUtils {
         stdio: ['ignore', 'pipe', 'ignore'],
         timeout: 3000,
       }).trim();
-      if (out && out.startsWith('/') && out.includes('/')) return out;
+      const resolvedPath = extractExecutablePath(out, platform);
+      if (resolvedPath) return resolvedPath;
     } catch {
       // ignore
     }
@@ -150,7 +152,10 @@ export class PlatformUtils {
           timeout: 4000,
         }).trim();
 
-        const lines = out.split('\n').map((l) => l.trim()).filter(Boolean);
+        const lines = out
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean);
         for (const line of lines) {
           const pathMatch = line.match(/(\/[^\s'"`]+)/);
           if (pathMatch && pathMatch[1]) {
@@ -415,4 +420,74 @@ export class PlatformUtils {
       };
     }
   }
+}
+
+/**
+ * 从 which/where 输出中提取可执行文件路径
+ */
+export function extractExecutablePath(
+  output: string,
+  platform: 'windows' | 'macos' | 'linux' | 'unknown'
+): string | null {
+  const candidates = output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (platform === 'windows') {
+    const rankedCandidates = candidates
+      .map((candidate, index) => ({ candidate, index }))
+      .filter(({ candidate }) => /^[a-zA-Z]:[\\/]/.test(candidate) || candidate.startsWith('\\\\'))
+      .sort((left, right) => {
+        const priorityDiff =
+          getWindowsCommandPriority(left.candidate) - getWindowsCommandPriority(right.candidate);
+        if (priorityDiff !== 0) {
+          return priorityDiff;
+        }
+
+        return left.index - right.index;
+      });
+
+    return rankedCandidates[0]?.candidate ?? null;
+  }
+
+  for (const candidate of candidates) {
+    if (candidate.startsWith('/')) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 判断 Windows 路径是否适合直接作为原生命令启动
+ */
+export function isWindowsNativeCommandPath(commandPath: string): boolean {
+  const normalizedPath = commandPath.trim().toLowerCase();
+  return (
+    normalizedPath.endsWith('.cmd') ||
+    normalizedPath.endsWith('.bat') ||
+    normalizedPath.endsWith('.exe') ||
+    normalizedPath.endsWith('.ps1')
+  );
+}
+
+function getWindowsCommandPriority(commandPath: string): number {
+  const normalizedPath = commandPath.trim().toLowerCase();
+
+  if (normalizedPath.endsWith('.cmd')) {
+    return 0;
+  }
+  if (normalizedPath.endsWith('.bat')) {
+    return 1;
+  }
+  if (normalizedPath.endsWith('.exe')) {
+    return 2;
+  }
+  if (normalizedPath.endsWith('.ps1')) {
+    return 3;
+  }
+
+  return 99;
 }

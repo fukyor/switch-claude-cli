@@ -48,7 +48,6 @@
 npm install -g switch-claude-cli
 ```
 
-
 ### 从源码安装
 
 ```bash
@@ -117,6 +116,7 @@ nano ~/.switch-claude/providers.json
 ```
 
 **代理配置说明** 🌐：
+
 - 如果某个 API 提供方需要通过代理访问（如 VPN），可以在配置中添加 `proxy` 字段
 - `proxy` 格式：`http://代理地址:端口`（例如：`http://127.0.0.1:7897`）
 - 未配置 `proxy` 字段的 Provider 会直接连接，不使用代理
@@ -142,6 +142,7 @@ switch-claude --list <==>  scl --list <==>  ccc --list
 ```
 
 **别名说明**：
+
 - `switch-claude` - 完整命令，语义清晰
 - `scl` - Switch CLaude 首字母缩写
 - `ccc` - Choose Claude CLI 缩写
@@ -159,12 +160,28 @@ ccc
 # 直接选择编号为 1 的 provider
 scl 1
 
-# 只设置环境变量，不启动 claude
+# 仅 Claude 模式：只设置环境变量，不启动 Claude Code
 scl -e 1
 
 # 查看版本并检查更新
 scl --version
 ```
+
+### Codex 模式
+
+```bash
+# 交互式选择 Codex provider
+switch-claude --codex
+
+# 直接选择 Codex provider，并写入 ~/.codex/config.toml 后启动 codex
+switch-claude --codex 1
+```
+
+**说明**：
+
+- Codex 模式不再通过环境变量注入 `baseUrl` 和 `key`
+- 工具会直接更新 `~/.codex/config.toml` 中 `[model_providers.x]` 下的 `name`、`base_url` 与 `experimental_bearer_token`
+- `--env-only` 仅适用于 Claude 模式，不适用于 `--codex`
 
 ### 检测和缓存
 
@@ -270,6 +287,7 @@ switch-claude --reset-stats
 - 🔄 **数据重置**：支持清空所有统计数据
 
 **统计数据存储**：
+
 - 统计数据存储在 `~/.switch-claude/usage-stats.json`
 - 数据会自动保存，无需手动操作
 - 重装或升级时统计数据会保留
@@ -283,27 +301,27 @@ switch-claude --help
 
 ## 🔧 命令行选项
 
-| 选项                   | 简写 | 描述                                    |
-| ---------------------- | ---- | --------------------------------------- |
-| `--help`               | `-h` | 显示帮助信息                            |
-| `--version`            | `-V` | 显示版本信息并检查更新                  |
-| `--refresh`            | `-r` | 强制刷新缓存，重新检测所有 provider     |
-| `--verbose`            | `-v` | 显示详细的调试信息                      |
-| `--list`               | `-l` | 只列出 providers 不启动 claude          |
-| `--env-only`           | `-e` | 只设置环境变量，不启动 claude           |
-| `--add`                |      | 添加新的 provider                       |
-| `--remove <编号>`      |      | 删除指定编号的 provider                 |
-| `--set-default <编号>` |      | 设置指定编号的 provider 为默认          |
-| `--clear-default`      |      | 清除默认 provider（每次都需要手动选择） |
-| `--check-update`       |      | 手动检查版本更新                        |
-| `--export [文件名]`    |      | 导出配置到文件                          |
-| `--import <文件名>`    |      | 从文件导入配置                          |
-| `--merge`              |      | 与 --import 配合使用，合并而不是替换    |
-| `--backup`             |      | 备份当前配置到系统目录                  |
-| `--list-backups`       |      | 列出所有备份文件                        |
-| `--stats`              |      | 显示使用统计信息                        |
-| `--export-stats [文件名]` |   | 导出统计数据到文件                      |
-| `--reset-stats`        |      | 重置所有统计数据                        |
+| 选项                      | 简写 | 描述                                               |
+| ------------------------- | ---- | -------------------------------------------------- |
+| `--help`                  | `-h` | 显示帮助信息                                       |
+| `--version`               | `-V` | 显示版本信息并检查更新                             |
+| `--refresh`               | `-r` | 强制刷新缓存，重新检测所有 provider                |
+| `--verbose`               | `-v` | 显示详细的调试信息                                 |
+| `--list`                  | `-l` | 只列出 providers 不启动应用                        |
+| `--env-only`              | `-e` | 仅 Claude 模式：只设置环境变量，不启动 Claude Code |
+| `--add`                   |      | 添加新的 provider                                  |
+| `--remove <编号>`         |      | 删除指定编号的 provider                            |
+| `--set-default <编号>`    |      | 设置指定编号的 provider 为默认                     |
+| `--clear-default`         |      | 清除默认 provider（每次都需要手动选择）            |
+| `--check-update`          |      | 手动检查版本更新                                   |
+| `--export [文件名]`       |      | 导出配置到文件                                     |
+| `--import <文件名>`       |      | 从文件导入配置                                     |
+| `--merge`                 |      | 与 --import 配合使用，合并而不是替换               |
+| `--backup`                |      | 备份当前配置到系统目录                             |
+| `--list-backups`          |      | 列出所有备份文件                                   |
+| `--stats`                 |      | 显示使用统计信息                                   |
+| `--export-stats [文件名]` |      | 导出统计数据到文件                                 |
+| `--reset-stats`           |      | 重置所有统计数据                                   |
 
 ## 📁 配置文件位置
 
@@ -389,7 +407,7 @@ switch-claude
 switch-claude -v --refresh
 ```
 
-2. 只设置环境变量，手动运行 claude：
+2. 只设置环境变量，手动运行 Claude Code：
 
 ```bash
 switch-claude -e 1
@@ -421,7 +439,7 @@ claude
 
 1. **检查安装**：确保 Claude Code 已正确安装
 2. **检查 PATH**：确保 claude 命令在系统 PATH 中
-3. **使用 --env-only**：
+3. **使用 --env-only（仅 Claude 模式）**：
 
 ```bash
 switch-claude -e 1
@@ -528,7 +546,6 @@ A: 工具会自动提醒你更新！你也可以：
 ### Q: 缓存文件可以删除吗？
 
 A: 可以。删除 `cache.json` 不会影响功能，只是下次运行会重新检测。
-
 
 ---
 

@@ -90,7 +90,7 @@ export class OutputFormatter {
   -r, --refresh       强制刷新缓存，重新检测所有 provider
   -v, --verbose       显示详细的调试信息
   -l, --list          只列出 providers 不启动应用
-  -e, --env-only      只设置环境变量，不启动应用
+  -e, --env-only      仅 Claude 模式：只设置环境变量，不启动 Claude Code
   -c, --check         强制检测 API 可用性（默认跳过检测，直接使用 provider）
   --add               添加新的 provider
   --edit <编号>       编辑指定编号的 provider
@@ -119,7 +119,7 @@ export class OutputFormatter {
 
   # Codex 模式
   switch-claude --codex   # 交互式选择 Codex provider
-  switch-claude --codex 1 # 直接选择编号为 1 的 Codex provider
+  switch-claude --codex 1 # 写入 ~/.codex/config.toml 后启动 Codex
   switch-claude --codex --list # 列出所有 Codex providers
   switch-claude --codex --add  # 添加新的 Codex provider
 
@@ -131,7 +131,7 @@ export class OutputFormatter {
   switch-claude --remove 2 # 删除编号为 2 的 provider
   switch-claude --set-default 1 # 设置编号为 1 的 provider 为默认
   switch-claude --clear-default  # 清除默认设置
-  switch-claude -e 1      # 只设置环境变量，不启动应用
+  switch-claude -e 1      # 仅 Claude：只设置环境变量，不启动 Claude Code
   switch-claude --export  # 导出配置到带时间戳的文件
   switch-claude --export my-config.json # 导出到指定文件
   switch-claude --import backup.json # 导入配置（替换）

@@ -229,6 +229,13 @@ export class CliParser {
       };
     }
 
+    if (options.codex && options.envOnly) {
+      return {
+        valid: false,
+        error: 'Codex 模式不支持 --env-only；会直接写入 ~/.codex/config.toml 后启动 codex',
+      };
+    }
+
     return { valid: true };
   }
 
@@ -283,7 +290,7 @@ export class CliParser {
   switch-claude              # 交互式选择 Claude provider
   switch-claude 1            # 直接选择编号为 1 的 Claude provider
   switch-claude --codex      # 交互式选择 Codex provider
-  switch-claude --codex 1    # 直接选择编号为 1 的 Codex provider
+  switch-claude --codex 1    # 写入 ~/.codex/config.toml 后启动 Codex
   switch-claude --add        # 添加新的 Claude provider
   switch-claude --codex --add # 添加新的 Codex provider
   switch-claude --list       # 列出所有 Claude providers

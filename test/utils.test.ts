@@ -22,11 +22,14 @@ describe('ValidationUtils', () => {
   });
 
   it('flags invalid provider details', () => {
-    const errors = ValidationUtils.validateProvider({
-      name: '',
-      baseUrl: 'not-a-url',
-      key: 'short',
-    }, 1);
+    const errors = ValidationUtils.validateProvider(
+      {
+        name: '',
+        baseUrl: 'not-a-url',
+        key: 'short',
+      },
+      1
+    );
 
     expect(errors.some((msg) => msg.includes('name'))).toBe(true);
     expect(errors.some((msg) => msg.includes('baseUrl'))).toBe(true);
@@ -81,6 +84,12 @@ describe('CliParser', () => {
   it('validates mutually exclusive options', () => {
     const validation = CliParser.validateOptions({ list: true, add: true });
     expect(validation.valid).toBe(false);
+  });
+
+  it('rejects --codex with --env-only', () => {
+    const validation = CliParser.validateOptions({ codex: true, envOnly: true });
+    expect(validation.valid).toBe(false);
+    expect(validation.error).toContain('Codex 模式不支持 --env-only');
   });
 });
 

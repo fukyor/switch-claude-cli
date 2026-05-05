@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus MCP
 
-This project is indexed by GitNexus as **switch-claude-cli** (264 symbols, 637 relationships, 21 execution flows).
+This project is indexed by GitNexus as **switch-claude-cli** (317 symbols, 785 relationships, 25 execution flows).
 
 ## Always Start Here
 
